@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мини-приложение</title>
+    <!-- Подключаем Telegram Web App JS -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: #0a0a0f;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0 30px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6c5ce7, #00b894);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: #888;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .card {
+            background: #16162a;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #2d2d4a;
+        }
+        .card h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+        }
+        .card p {
+            color: #999;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6c5ce7, #00b894);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        .btn-secondary {
+            background: #2d2d4a;
+            color: #e0e0e0;
+            margin-top: 10px;
+        }
+        .btn-secondary:hover {
+            background: #3d3d5a;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #1f1f3a;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            color: #888;
+            font-size: 13px;
+        }
+        .info-value {
+            color: #e0e0e0;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .badge {
+            display: inline-block;
+            background: #00b89420;
+            color: #00b894;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid #00b89440;
+        }
+        .footer {
+            text-align: center;
+            padding: 30px 0 10px;
+            color: #555;
+            font-size: 12px;
+        }
+        /* Адаптация под темную тему Telegram */
+        @media (prefers-color-scheme: light) {
+            body {
+                background: #f5f5f5;
+                color: #1a1a2e;
+            }
+            .card {
+                background: #ffffff;
+                border: 1px solid #e0e0e0;
+            }
+            .card h3 {
+                color: #1a1a2e;
+            }
+            .info-label {
+                color: #666;
+            }
+            .info-value {
+                color: #1a1a2e;
+            }
+            .btn-secondary {
+                background: #e8e8e8;
+                color: #1a1a2e;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Мои поручения</h1>
+            <p>Быстрый доступ к задачам</p>
+        </div>
+
+        <div class="card">
+            <h3>📊 Статистика</h3>
+            <div class="info-row">
+                <span class="info-label">Всего задач</span>
+                <span class="info-value" id="totalTasks">5</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Выполнено</span>
+                <span class="info-value" id="completedTasks">2</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Просрочено</span>
+                <span class="info-value" id="overdueTasks" style="color:#ff6b6b;">1</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Активных</span>
+                <span class="info-value" id="activeTasks" style="color:#6c5ce7;">2</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔥 Срочные задачи</h3>
+            <p id="urgentTasks">Нет срочных задач</p>
+        </div>
+
+        <button class="btn btn-primary" onclick="sendData()">📤 Обновить данные</button>
+        <button class="btn btn-secondary" onclick="closeApp()">❌ Закрыть</button>
+
+        <div class="footer">
+            <span class="badge">Версия 1.0</span>
+            <p style="margin-top:8px;">Telegram Web App</p>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Растягиваем на весь экран
+        
+        // Получаем данные пользователя
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            console.log('Пользователь:', user);
+        }
+
+        // Функция отправки данных в бот
+        function sendData() {
+            const data = {
+                action: 'get_tasks',
+                user_id: user?.id || null,
+                timestamp: new Date().toISOString()
+            };
+            
+            tg.sendData(JSON.stringify(data));
+            
+            // Показываем уведомление
+            tg.showAlert('📤 Данные отправлены!');
+        }
+
+        // Функция закрытия приложения
+        function closeApp() {
+            tg.close();
+        }
+
+        // Показываем приветствие при открытии
+        tg.showPopup({
+            title: '👋 Добро пожаловать!',
+            message: 'Здесь будет список ваших поручений\n\nДанные обновляются в реальном времени',
+            buttons: [{ type: 'ok' }]
+        });
+
+        // Обработка данных, которые приходят из бота
+        tg.onEvent('mainButtonClicked', function() {
+            console.log('Кнопка нажата');
+        });
+    </script>
+</body>
+</html>
