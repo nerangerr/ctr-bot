@@ -7,6 +7,9 @@ import logging
 import asyncio
 import re
 import tempfile
+import requests
+import threading
+import time
 from datetime import datetime, timedelta, time as datetime_time
 from typing import Optional, List, Dict, Any
 from psycopg2.extras import RealDictCursor
@@ -1946,6 +1949,20 @@ def start_health_server():
 
 # Запускаем Flask в отдельном потоке (не блокирует бота)
 threading.Thread(target=start_health_server, daemon=True).start()
+
+# ============== KEEP-ALIVE ДЛЯ RENDER ==============
+def keep_alive():
+    url = "https://ctr-bot-11037.onrender.com"  # ← ВАША ССЫЛКА!
+    while True:
+        try:
+            requests.get(url)
+            print("✅ Keep-alive пинг отправлен")
+        except Exception as e:
+            print(f"❌ Keep-alive ошибка: {e}")
+        time.sleep(600)  # 10 минут
+
+# Запускаем keep-alive в отдельном потоке
+threading.Thread(target=keep_alive, daemon=True).start()
 
 # ============== ЗАПУСК БОТА ==============
 if __name__ == "__main__":
