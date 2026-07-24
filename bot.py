@@ -1935,5 +1935,26 @@ def main():
     print("🚀 Бот запущен!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
+    # ============== ДЛЯ RENDER WEB SERVICE ==============
+from flask import Flask
+import threading
+
+# Создаём минимальный Flask сервер для health check
+health_app = Flask(__name__)
+
+@health_app.route('/')
+def health_check():
+    return "Bot is running!", 200
+
+def start_health_server():
+    health_app.run(host='0.0.0.0', port=10000)
+
+# Запускаем Flask в отдельном потоке (не блокирует бота)
+threading.Thread(target=start_health_server, daemon=True).start()
+
+# ============== ЗАПУСК БОТА ==============
+if __name__ == "__main__":
+    main()
+
 if __name__ == "__main__":
     main()
