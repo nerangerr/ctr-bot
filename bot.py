@@ -1842,8 +1842,8 @@ async def setup_bot_commands(application: Application):
 
 async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Открывает мини-приложение"""
-    ngrok_url = "https://entity-underpass-agreed.ngrok-free.dev"
-    web_app_url = f"{ngrok_url}/tg/app/"
+    app_url = "https://ctr-mini-app-11037.onrender.com"  # ← НОВАЯ ССЫЛКА НА RENDER
+    web_app_url = f"{app_url}/tg/app/"
     keyboard = [
         [InlineKeyboardButton("📱 Открыть приложение", web_app={"url": web_app_url})]
     ]
