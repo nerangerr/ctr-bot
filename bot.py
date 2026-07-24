@@ -9,7 +9,7 @@ import re
 import tempfile
 from datetime import datetime, timedelta, time as datetime_time
 from typing import Optional, List, Dict, Any
-from psycopg2.extras import RealDictCursor  # <-- добавить, если нет
+from psycopg2.extras import RealDictCursor
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 from telegram.ext import (
@@ -47,7 +47,6 @@ def get_full_name_by_id(user_id: int) -> Optional[str]:
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 ADMIN_TELEGRAM_ID = int(os.getenv("ADMIN_TELEGRAM_ID", "0") or "0")
 USE_POSTGRES = os.getenv("USE_POSTGRES", "false").lower() == "true"
-# USE_POSTGRES = False
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 print(f"🔍 USE_POSTGRES = {USE_POSTGRES}")
@@ -411,25 +410,22 @@ def parse_date(date_str: str) -> Optional[str]:
     Возвращает строку в формате YYYY-MM-DD или None, если не удалось распарсить.
     """
     date_str = date_str.strip()
-    # Попробуем сначала YYYY-MM-DD
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         return dt.strftime("%Y-%m-%d")
     except ValueError:
         pass
-    # Попробуем DD-MM-YYYY
     try:
         dt = datetime.strptime(date_str, "%d-%m-%Y")
         return dt.strftime("%Y-%m-%d")
     except ValueError:
         pass
-    # Попробуем DD.MM.YYYY
     try:
         dt = datetime.strptime(date_str, "%d.%m.%Y")
         return dt.strftime("%Y-%m-%d")
     except ValueError:
         pass
-    return None   
+    return None
 
 # ============== КОМАНДЫ ==============
 
@@ -562,7 +558,6 @@ async def list_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     print("✅ list_assignments ВЫЗВАНА")
     user_id = update.effective_user.id
     all_assignments = get_user_assignments(user_id)
-    # Оставляем только активные (не выполненные)
     assignments = [a for a in all_assignments if a.get("status") != "completed"]
     if not assignments:
         await update.message.reply_text("📭 Нет активных поручений.")
@@ -1245,7 +1240,6 @@ async def deadline_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Парсим все аргументы
     parsed_dates = []
     for arg in args:
         parsed = parse_date(arg)
@@ -1845,7 +1839,7 @@ async def setup_bot_commands(application: Application):
 
 async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Открывает мини-приложение"""
-    ngrok_url = "https://entity-underpass-agreed.ngrok-free.dev"  # ← твоя ссылка
+    ngrok_url = "https://entity-underpass-agreed.ngrok-free.dev"
     web_app_url = f"{ngrok_url}/tg/app/"
     keyboard = [
         [InlineKeyboardButton("📱 Открыть приложение", web_app={"url": web_app_url})]
@@ -1855,6 +1849,7 @@ async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📱 Нажми на кнопку, чтобы открыть мини-приложение:",
         reply_markup=reply_markup
     )
+
 # ============== ЗАПУСК ==============
 
 def main():
@@ -1935,7 +1930,7 @@ def main():
     print("🚀 Бот запущен!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
-    # ============== ДЛЯ RENDER WEB SERVICE ==============
+# ============== ДЛЯ RENDER WEB SERVICE ==============
 from flask import Flask
 import threading
 
@@ -1953,8 +1948,5 @@ def start_health_server():
 threading.Thread(target=start_health_server, daemon=True).start()
 
 # ============== ЗАПУСК БОТА ==============
-if __name__ == "__main__":
-    main()
-
 if __name__ == "__main__":
     main()
