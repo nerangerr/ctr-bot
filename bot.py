@@ -471,6 +471,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 /edit 5 responsible Иванов, Петров
     """
     await update.message.reply_text(text)
+    
+    # ===== КНОПКА В START =====
+    web_app_url = "https://ctr-mini-app-11037.onrender.com/tg/app/"
+    keyboard = [
+        [InlineKeyboardButton("📱 Открыть CTR PROTOCOL", web_app={"url": web_app_url})]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        "📱 *Нажми на кнопку, чтобы открыть мини-приложение:*",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
+    # =========================
+
     if not is_registered:
         await update.message.reply_text(
             "⚠️ *Вы не зарегистрированы!*\n\n"
@@ -1312,7 +1326,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_registration
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    web_app_url = "https://ctr-mini-app-11037.onrender.com/tg/app/"
+    
     keyboard = [
+        [InlineKeyboardButton("📱 CTR PROTOCOL", web_app={"url": web_app_url})],
         [InlineKeyboardButton("📤 Загрузить документ", callback_data="menu_upload")],
         [InlineKeyboardButton("📋 Активные", callback_data="menu_list")],
         [InlineKeyboardButton("🔥 Сегодня", callback_data="menu_today")],
@@ -1326,7 +1343,6 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("📌 *Выбери действие:*", reply_markup=reply_markup, parse_mode="Markdown")
-
 async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
