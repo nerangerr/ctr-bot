@@ -16,7 +16,7 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_ENABLED = os.getenv("GROQ_ENABLED", "false").lower() == "true"
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
 print(f"🔍 GROQ_ENABLED = {GROQ_ENABLED}")
 
