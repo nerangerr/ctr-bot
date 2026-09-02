@@ -32,6 +32,16 @@ PAGE_SIZE = 5
 
 load_dotenv()
 
+# ============== ФУНКЦИЯ ДЛЯ ЗАЩИТЫ ОТ СПЕЦСИМВОЛОВ ==============
+def escape_markdown(text: str) -> str:
+    """Экранирует спецсимволы для Telegram, но сохраняет эмодзи"""
+    if not text:
+        return text
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', str(text))
+
+# ================================================================
+
 EMPLOYEES = {
     "Ома К.К.": 1135811406,
     "Кулубеков Т.Т.": 400037831,
@@ -116,10 +126,10 @@ def require_registration(func):
         user_id = update.effective_user.id
         if not is_user_registered(user_id):
             await update.message.reply_text(
-                "⚠️ *Для использования этой команды необходимо зарегистрироваться!*\n\n"
+                escape_markdown("⚠️ *Для использования этой команды необходимо зарегистрироваться!*\n\n"
                 "Используйте команду:\n"
                 "📝 `/register Ваше ФИО`\n\n"
-                "Пример: `/register Иванов И.И.`",
+                "Пример: `/register Иванов И.И.`"),
                 parse_mode="Markdown"
             )
             return
@@ -470,7 +480,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 /edit 5 deadline 2025-12-31
 /edit 5 responsible Иванов, Петров
     """
-    await update.message.reply_text(text)
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
     
     # ===== КНОПКА В START =====
     web_app_url = "https://ctr-mini-app-11037.onrender.com/tg/app/"
@@ -479,7 +489,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "📱 *Нажми на кнопку, чтобы открыть мини-приложение:*",
+        escape_markdown("📱 *Нажми на кнопку, чтобы открыть мини-приложение:*"),
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -487,29 +497,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not is_registered:
         await update.message.reply_text(
-            "⚠️ *Вы не зарегистрированы!*\n\n"
+            escape_markdown("⚠️ *Вы не зарегистрированы!*\n\n"
             "Чтобы начать пользоваться ботом и получать уведомления о поручениях, "
             "зарегистрируйтесь с помощью команды:\n\n"
             "📝 `/register Ваше ФИО`\n\n"
-            "Пример: `/register Иванов И.И.`",
+            "Пример: `/register Иванов И.И.`"),
             parse_mode="Markdown"
         )
 
 @require_registration
 async def upload_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("📤 Отправь PDF или DOCX файл.")
+    await update.message.reply_text(escape_markdown("📤 Отправь PDF или DOCX файл."), parse_mode=None)
 
 @require_registration
 async def upload_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message.document:
-        await update.message.reply_text("Отправь файл.")
+        await update.message.reply_text(escape_markdown("Отправь файл."), parse_mode=None)
         return
     file = update.message.document
     file_name = file.file_name or "unknown"
     if not file_name.lower().endswith((".pdf", ".docx", ".png", ".jpg", ".jpeg")):
-        await update.message.reply_text("⚠️ Поддерживаются: PDF, DOCX, PNG, JPG, JPEG")
+        await update.message.reply_text(escape_markdown("⚠️ Поддерживаются: PDF, DOCX, PNG, JPG, JPEG"), parse_mode=None)
         return
-    await update.message.reply_text("📥 Скачиваю...")
+    await update.message.reply_text(escape_markdown("📥 Скачиваю..."), parse_mode=None)
     try:
         file_obj = await context.bot.get_file(file.file_id)
         file_path = os.path.join(os.getcwd(), file_name)
@@ -517,7 +527,7 @@ async def upload_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         text = extract_text(file_path)
         os.remove(file_path)
         if not text or len(text.strip()) < 5:
-            await update.message.reply_text("❌ Не удалось извлечь текст. Файл пуст или защищён.")
+            await update.message.reply_text(escape_markdown("❌ Не удалось извлечь текст. Файл пуст или защищён."), parse_mode=None)
             return
         preview = text[:1000] + ("..." if len(text) > 1000 else "")
 
@@ -536,7 +546,7 @@ async def upload_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 msg += f"{idx}. {assignment.get('short_task', 'Без названия')}\n"
                 msg += f"   📅 Дедлайн: {format_date(assignment.get('deadline', 'не указан'))}\n"
                 msg += f"   👤 Ответств.: {', '.join(assignment.get('responsible', ['не указан']))}\n\n"
-            await update.message.reply_text(msg)
+            await update.message.reply_text(escape_markdown(msg), parse_mode=None)
 
             prepared = []
             for raw in assignments_list:
@@ -559,16 +569,17 @@ async def upload_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             }
             aid = save_assignment(update.effective_user.id, assignment)
             await update.message.reply_text(
-                f"ℹ️ Не удалось автоматически извлечь поручения. Сохранён текст без дедлайна.\n"
+                escape_markdown(f"ℹ️ Не удалось автоматически извлечь поручения. Сохранён текст без дедлайна.\n"
                 f"✅ Сохранено! ID: {aid}\n"
                 f"Извлечено {len(text)} символов.\n\n"
                 f"📄 Текст:\n{preview}\n\n"
-                f"Используй /edit {aid} deadline YYYY-MM-DD, чтобы добавить/изменить дедлайн."
+                f"Используй /edit {aid} deadline YYYY-MM-DD, чтобы добавить/изменить дедлайн."),
+                parse_mode=None
             )
 
     except Exception as e:
         logger.error(f"Upload error: {e}")
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(escape_markdown(f"❌ Ошибка: {str(e)}"), parse_mode=None)
 
 @require_registration
 async def list_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -577,7 +588,7 @@ async def list_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     all_assignments = get_user_assignments(user_id)
     assignments = [a for a in all_assignments if a.get("status") != "completed"]
     if not assignments:
-        await update.message.reply_text("📭 Нет активных поручений.")
+        await update.message.reply_text(escape_markdown("📭 Нет активных поручений."), parse_mode=None)
         return
     context.user_data["list_assignments"] = assignments
     context.user_data["list_page"] = 0
@@ -591,9 +602,9 @@ async def send_list_page(message, context, edit=False):
     total = len(assignments)
     if total == 0:
         if edit:
-            await message.edit_text("📭 Нет текстов.")
+            await message.edit_text(escape_markdown("📭 Нет текстов."), parse_mode=None)
         else:
-            await message.reply_text("📭 Нет текстов.")
+            await message.reply_text(escape_markdown("📭 Нет текстов."), parse_mode=None)
         return
     start = page * PAGE_SIZE
     end = min(start + PAGE_SIZE, total)
@@ -626,9 +637,9 @@ async def send_list_page(message, context, edit=False):
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
 
     if edit:
-        await message.edit_text(text, reply_markup=reply_markup)
+        await message.edit_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
     else:
-        await message.reply_text(text, reply_markup=reply_markup)
+        await message.reply_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
 
 async def list_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -639,7 +650,7 @@ async def list_navigation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == "list_next":
         context.user_data["list_page"] = context.user_data.get("list_page", 0) + 1
     elif action == "list_delete_prompt":
-        await query.edit_message_text("Введите ID для удаления: /delete <id>")
+        await query.edit_message_text(escape_markdown("Введите ID для удаления: /delete <id>"), parse_mode=None)
         return
     await send_list_page(query.message, context, edit=True)
 
@@ -653,7 +664,7 @@ async def complete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = get_full_name_by_id(user_id)
 
     if not user_name:
-        await query.edit_message_text("❌ Вы не зарегистрированы как сотрудник.")
+        await query.edit_message_text(escape_markdown("❌ Вы не зарегистрированы как сотрудник."), parse_mode=None)
         return
 
     found = False
@@ -669,37 +680,39 @@ async def complete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if row:
                 a = dict(row)
                 if user_id != a.get("owner_id") and user_name not in a.get("responsible", []):
-                    await query.edit_message_text("⛔ Вы не назначены ответственным за это поручение.")
+                    await query.edit_message_text(escape_markdown("⛔ Вы не назначены ответственным за это поручение."), parse_mode=None)
                     return
                 context.user_data["pending_complete"] = assignment_id
                 context.user_data["pending_files"] = []
                 await query.edit_message_text(
-                    f"📝 Введите краткий отчёт о выполнении поручения:\n\n"
+                    escape_markdown(f"📝 Введите краткий отчёт о выполнении поручения:\n\n"
                     f"«{a.get('short_task', 'Без названия')}»\n\n"
                     f"Опишите, что было сделано.\n"
                     f"Можете также прикрепить фото или документы (по одному за раз).\n"
-                    f"Отчёт будет отправлен после ввода текста."
+                    f"Отчёт будет отправлен после ввода текста."),
+                    parse_mode=None
                 )
                 found = True
         except Exception as e:
             logger.error(f"DB error in complete_callback: {e}")
-            await query.edit_message_text("❌ Ошибка при обращении к базе данных.")
+            await query.edit_message_text(escape_markdown("❌ Ошибка при обращении к базе данных."), parse_mode=None)
             return
     else:
         for uid, assignments in user_assignments.items():
             for a in assignments:
                 if a.get("id") == assignment_id:
                     if user_id != uid and user_name not in a.get("responsible", []):
-                        await query.edit_message_text("⛔ Вы не назначены ответственным за это поручение.")
+                        await query.edit_message_text(escape_markdown("⛔ Вы не назначены ответственным за это поручение."), parse_mode=None)
                         return
                     context.user_data["pending_complete"] = assignment_id
                     context.user_data["pending_files"] = []
                     await query.edit_message_text(
-                        f"📝 Введите краткий отчёт о выполнении поручения:\n\n"
+                        escape_markdown(f"📝 Введите краткий отчёт о выполнении поручения:\n\n"
                         f"«{a.get('short_task', 'Без названия')}»\n\n"
                         f"Опишите, что было сделано.\n"
                         f"Можете также прикрепить фото или документы (по одному за раз).\n"
-                        f"Отчёт будет отправлен после ввода текста."
+                        f"Отчёт будет отправлен после ввода текста."),
+                        parse_mode=None
                     )
                     found = True
                     break
@@ -707,7 +720,7 @@ async def complete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 break
 
     if not found:
-        await query.edit_message_text("❌ Поручение не найдено.")
+        await query.edit_message_text(escape_markdown("❌ Поручение не найдено."), parse_mode=None)
 
 async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("pending_complete") is not None:
@@ -715,10 +728,10 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         user_id = update.effective_user.id
         if not is_user_registered(user_id):
-            await update.message.reply_text("⚠️ Зарегистрируйтесь: /register ФИО")
+            await update.message.reply_text(escape_markdown("⚠️ Зарегистрируйтесь: /register ФИО"), parse_mode=None)
             return
         if not is_admin(user_id):
-            await update.message.reply_text("⛔ Только начальники могут загружать документы.")
+            await update.message.reply_text(escape_markdown("⛔ Только начальники могут загружать документы."), parse_mode=None)
             return
         await upload_handler(update, context)
 
@@ -732,7 +745,7 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
     if update.message.text:
         text = update.message.text.strip()
         if not text:
-            await update.message.reply_text("⚠️ Отчёт не может быть пустым. Напишите текст.")
+            await update.message.reply_text(escape_markdown("⚠️ Отчёт не может быть пустым. Напишите текст."), parse_mode=None)
             return
 
         files = context.user_data.get("pending_files", [])
@@ -745,7 +758,7 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
         user_name = get_full_name_by_id(user_id)
 
         if not user_name:
-            await update.message.reply_text("❌ Вы не зарегистрированы.")
+            await update.message.reply_text(escape_markdown("❌ Вы не зарегистрированы."), parse_mode=None)
             return
 
         if USE_POSTGRES and db_manager:
@@ -759,7 +772,7 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
                 if row:
                     a = dict(row)
                     if user_id != a.get("owner_id") and user_name not in a.get("responsible", []):
-                        await update.message.reply_text("⛔ Вы не назначены ответственным.")
+                        await update.message.reply_text(escape_markdown("⛔ Вы не назначены ответственным."), parse_mode=None)
                         return
                     conn = db_manager.get_connection()
                     cur = conn.cursor()
@@ -776,14 +789,14 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
                     assignment_data = a
             except Exception as e:
                 logger.error(f"DB error in completion_report_handler: {e}")
-                await update.message.reply_text("❌ Ошибка при сохранении отчёта.")
+                await update.message.reply_text(escape_markdown("❌ Ошибка при сохранении отчёта."), parse_mode=None)
                 return
         else:
             for uid, assignments in user_assignments.items():
                 for a in assignments:
                     if a.get("id") == pending_id:
                         if user_id != uid and user_name not in a.get("responsible", []):
-                            await update.message.reply_text("⛔ Вы не назначены ответственным.")
+                            await update.message.reply_text(escape_markdown("⛔ Вы не назначены ответственным."), parse_mode=None)
                             return
                         a["status"] = "completed"
                         a["completion_report"] = text
@@ -796,10 +809,10 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
                     break
 
         if not found:
-            await update.message.reply_text("❌ Поручение не найдено.")
+            await update.message.reply_text(escape_markdown("❌ Поручение не найдено."), parse_mode=None)
             return
 
-        await update.message.reply_text("✅ Поручение отмечено как выполненное. Спасибо за отчёт!")
+        await update.message.reply_text(escape_markdown("✅ Поручение отмечено как выполненное. Спасибо за отчёт!"), parse_mode=None)
 
         if owner_id:
             try:
@@ -849,11 +862,12 @@ async def completion_report_handler(update: Update, context: ContextTypes.DEFAUL
         })
 
         await update.message.reply_text(
-            f"✅ Файл «{file_name}» добавлен к отчёту.\n"
-            f"Можете добавить ещё файлы или напишите текст отчёта, чтобы завершить."
+            escape_markdown(f"✅ Файл «{file_name}» добавлен к отчёту.\n"
+            f"Можете добавить ещё файлы или напишите текст отчёта, чтобы завершить."),
+            parse_mode=None
         )
     else:
-        await update.message.reply_text("⚠️ Пожалуйста, отправьте текст или файл.")
+        await update.message.reply_text(escape_markdown("⚠️ Пожалуйста, отправьте текст или файл."), parse_mode=None)
 
 # ============== ОСТАЛЬНЫЕ КОМАНДЫ ==============
 
@@ -862,17 +876,17 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
     if not args:
-        await update.message.reply_text("Укажи ID: /delete 5")
+        await update.message.reply_text(escape_markdown("Укажи ID: /delete 5"), parse_mode=None)
         return
     try:
         aid = int(args[0])
     except ValueError:
-        await update.message.reply_text("ID должен быть числом.")
+        await update.message.reply_text(escape_markdown("ID должен быть числом."), parse_mode=None)
         return
     if delete_assignment(user_id, aid):
-        await update.message.reply_text(f"✅ Текст с ID {aid} удалён.")
+        await update.message.reply_text(escape_markdown(f"✅ Текст с ID {aid} удалён."), parse_mode=None)
     else:
-        await update.message.reply_text(f"❌ Текст с ID {aid} не найден.")
+        await update.message.reply_text(escape_markdown(f"❌ Текст с ID {aid} не найден."), parse_mode=None)
 
 @require_registration
 async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -880,32 +894,33 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) < 3:
         await update.message.reply_text(
-            "Использование: /edit <id> <поле> <значение>\n"
+            escape_markdown("Использование: /edit <id> <поле> <значение>\n"
             "Поля: deadline, responsible, short_task, description\n"
-            "Пример: /edit 5 deadline 2025-12-31"
+            "Пример: /edit 5 deadline 2025-12-31"),
+            parse_mode=None
         )
         return
     try:
         aid = int(args[0])
     except ValueError:
-        await update.message.reply_text("ID должен быть числом.")
+        await update.message.reply_text(escape_markdown("ID должен быть числом."), parse_mode=None)
         return
     field = args[1].lower()
     value = " ".join(args[2:])
     if field not in ["deadline", "responsible", "short_task", "description"]:
-        await update.message.reply_text("Доступные поля: deadline, responsible, short_task, description")
+        await update.message.reply_text(escape_markdown("Доступные поля: deadline, responsible, short_task, description"), parse_mode=None)
         return
     if update_assignment(user_id, aid, field, value):
-        await update.message.reply_text(f"✅ Поле {field} обновлено для ID {aid}.")
+        await update.message.reply_text(escape_markdown(f"✅ Поле {field} обновлено для ID {aid}."), parse_mode=None)
     else:
-        await update.message.reply_text(f"❌ Не удалось обновить. Проверь ID и формат (для даты: YYYY-MM-DD).")
+        await update.message.reply_text(escape_markdown(f"❌ Не удалось обновить. Проверь ID и формат (для даты: YYYY-MM-DD)."), parse_mode=None)
 
 @require_registration
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
     if not args:
-        await update.message.reply_text("Введите слово для поиска: /search отчёт")
+        await update.message.reply_text(escape_markdown("Введите слово для поиска: /search отчёт"), parse_mode=None)
         return
     keyword = " ".join(args).lower()
     assignments = get_user_assignments(user_id)
@@ -914,14 +929,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if keyword in a.get("short_task", "").lower() or keyword in a.get("description", "").lower():
             found.append(a)
     if not found:
-        await update.message.reply_text(f"🔍 По запросу «{keyword}» ничего не найдено.")
+        await update.message.reply_text(escape_markdown(f"🔍 По запросу «{keyword}» ничего не найдено."), parse_mode=None)
         return
     text = f"🔍 Результаты поиска ({len(found)}):\n\n"
     for a in found[:10]:
         text += format_assignment_short(a.get("id"), a) + "\n"
     if len(found) > 10:
         text += "\n... показаны первые 10."
-    await update.message.reply_text(text)
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -929,7 +944,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     assignments = get_user_assignments(user_id)
     total = len(assignments)
     if total == 0:
-        await update.message.reply_text("📊 Статистика\n\nНет данных.")
+        await update.message.reply_text(escape_markdown("📊 Статистика\n\nНет данных."), parse_mode=None)
         return
 
     chars = sum(len(a.get("description", "")) for a in assignments)
@@ -966,14 +981,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text += f"Всего символов: {chars}\n"
     if total > 0:
         text += f"Средняя длина: {chars // total} символов."
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     assignments = get_user_assignments(user_id)
     if not assignments:
-        await update.message.reply_text("📭 Нет данных для экспорта.")
+        await update.message.reply_text(escape_markdown("📭 Нет данных для экспорта."), parse_mode=None)
         return
     try:
         from openpyxl import Workbook
@@ -1005,16 +1020,16 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
     except ImportError:
-        await update.message.reply_text("❌ Библиотека openpyxl не установлена. Установи: pip install openpyxl")
+        await update.message.reply_text(escape_markdown("❌ Библиотека openpyxl не установлена. Установи: pip install openpyxl"), parse_mode=None)
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка экспорта: {str(e)}")
+        await update.message.reply_text(escape_markdown(f"❌ Ошибка экспорта: {str(e)}"), parse_mode=None)
 
 @require_registration
 async def export_csv_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     assignments = get_user_assignments(user_id)
     if not assignments:
-        await update.message.reply_text("📭 Нет данных для экспорта.")
+        await update.message.reply_text(escape_markdown("📭 Нет данных для экспорта."), parse_mode=None)
         return
     try:
         import csv
@@ -1044,32 +1059,32 @@ async def export_csv_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка экспорта в CSV: {str(e)}")
+        await update.message.reply_text(escape_markdown(f"❌ Ошибка экспорта в CSV: {str(e)}"), parse_mode=None)
 
 @require_registration
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if clear_user_assignments(user_id):
-        await update.message.reply_text("✅ Все ваши поручения удалены.")
+        await update.message.reply_text(escape_markdown("✅ Все ваши поручения удалены."), parse_mode=None)
     else:
-        await update.message.reply_text("📭 У вас нет сохранённых поручений.")
+        await update.message.reply_text(escape_markdown("📭 У вас нет сохранённых поручений."), parse_mode=None)
 
 @require_registration
 async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
     if not args:
-        await update.message.reply_text("Укажи ID поручения: /done 5")
+        await update.message.reply_text(escape_markdown("Укажи ID поручения: /done 5"), parse_mode=None)
         return
     try:
         assignment_id = int(args[0])
     except ValueError:
-        await update.message.reply_text("ID должен быть числом.")
+        await update.message.reply_text(escape_markdown("ID должен быть числом."), parse_mode=None)
         return
 
     user_name = get_full_name_by_id(user_id)
     if not user_name:
-        await update.message.reply_text("❌ Вы не зарегистрированы как сотрудник.")
+        await update.message.reply_text(escape_markdown("❌ Вы не зарегистрированы как сотрудник."), parse_mode=None)
         return
 
     found = False
@@ -1085,7 +1100,7 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 a = dict(row)
                 if a.get("owner_id") == user_id or user_name in a.get("responsible", []):
                     if a.get("status") == "completed":
-                        await update.message.reply_text("ℹ️ Поручение уже выполнено.")
+                        await update.message.reply_text(escape_markdown("ℹ️ Поручение уже выполнено."), parse_mode=None)
                         return
                     conn = db_manager.get_connection()
                     cur = conn.cursor()
@@ -1094,10 +1109,10 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     cur.close()
                     conn.close()
                     found = True
-                    await update.message.reply_text(f"✅ Поручение «{a.get('short_task', '')}» отмечено как выполненное.")
+                    await update.message.reply_text(escape_markdown(f"✅ Поручение «{a.get('short_task', '')}» отмечено как выполненное."), parse_mode=None)
         except Exception as e:
             logger.error(f"DB error in done_command: {e}")
-            await update.message.reply_text("❌ Ошибка при обращении к базе данных.")
+            await update.message.reply_text(escape_markdown("❌ Ошибка при обращении к базе данных."), parse_mode=None)
             return
     else:
         for uid, assignments in user_assignments.items():
@@ -1105,29 +1120,29 @@ async def done_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if a.get("id") == assignment_id:
                     if a.get("owner_id") == user_id or (user_name and user_name in a.get("responsible", [])):
                         if a.get("status") == "completed":
-                            await update.message.reply_text("ℹ️ Поручение уже выполнено.")
+                            await update.message.reply_text(escape_markdown("ℹ️ Поручение уже выполнено."), parse_mode=None)
                             return
                         a["status"] = "completed"
-                        await update.message.reply_text(f"✅ Поручение «{a.get('short_task', '')}» отмечено как выполненное.")
+                        await update.message.reply_text(escape_markdown(f"✅ Поручение «{a.get('short_task', '')}» отмечено как выполненное."), parse_mode=None)
                         found = True
                         break
             if found:
                 break
 
     if not found:
-        await update.message.reply_text("❌ Поручение не найдено или у вас нет прав.")
+        await update.message.reply_text(escape_markdown("❌ Поручение не найдено или у вас нет прав."), parse_mode=None)
 
 @require_registration
 async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     args = context.args
     if not args:
-        await update.message.reply_text("Укажи ID поручения: /remind 5")
+        await update.message.reply_text(escape_markdown("Укажи ID поручения: /remind 5"), parse_mode=None)
         return
     try:
         assignment_id = int(args[0])
     except ValueError:
-        await update.message.reply_text("ID должен быть числом.")
+        await update.message.reply_text(escape_markdown("ID должен быть числом."), parse_mode=None)
         return
 
     assignments = get_user_assignments(user_id)
@@ -1153,10 +1168,10 @@ async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 text += f"📅 Дедлайн не указан\n"
             text += f"👤 Ответственные: {', '.join(a.get('responsible', ['не указан']))}\n"
-            await update.message.reply_text(text, parse_mode="Markdown")
-            await update.message.reply_text("✅ Напоминание отправлено.")
+            await update.message.reply_text(escape_markdown(text), parse_mode=None)
+            await update.message.reply_text(escape_markdown("✅ Напоминание отправлено."), parse_mode=None)
             return
-    await update.message.reply_text(f"❌ Поручение с ID {assignment_id} не найдено.")
+    await update.message.reply_text(escape_markdown(f"❌ Поручение с ID {assignment_id} не найдено."), parse_mode=None)
 
 @require_registration
 async def completed_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1164,12 +1179,12 @@ async def completed_assignments(update: Update, context: ContextTypes.DEFAULT_TY
     assignments = get_user_assignments(user_id)
     completed = [a for a in assignments if a.get("status") == "completed"]
     if not completed:
-        await update.message.reply_text("📭 Нет выполненных поручений.")
+        await update.message.reply_text(escape_markdown("📭 Нет выполненных поручений."), parse_mode=None)
         return
     text = "✅ *Выполненные поручения*\n\n"
     for idx, a in enumerate(completed, 1):
         text += format_assignment_short(idx, a) + "\n"
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def today_assignments(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1197,12 +1212,12 @@ async def filter_by_deadline(update: Update, context: ContextTypes.DEFAULT_TYPE,
     else:
         filtered = []
     if not filtered:
-        await update.message.reply_text("📭 Нет текстов, подходящих под этот фильтр.")
+        await update.message.reply_text(escape_markdown("📭 Нет текстов, подходящих под этот фильтр."), parse_mode=None)
         return
     text = f"📋 Результаты фильтрации\n\n"
     for idx, a in enumerate(filtered, 1):
         text += format_assignment_short(idx, a) + "\n"
-    await update.message.reply_text(text)
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def responsible_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1214,7 +1229,7 @@ async def responsible_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             if r and r != "Не указан":
                 names.add(r)
     if not names:
-        await update.message.reply_text("📭 Нет активных поручений с ответственными.")
+        await update.message.reply_text(escape_markdown("📭 Нет активных поручений с ответственными."), parse_mode=None)
         return
     keyboard = []
     row = []
@@ -1227,7 +1242,7 @@ async def responsible_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         keyboard.append(row)
     keyboard.append([InlineKeyboardButton("↩️ Назад", callback_data="menu_list")])
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("👤 *Выбери ответственного:*", reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(escape_markdown("👤 *Выбери ответственного:*"), reply_markup=reply_markup, parse_mode="Markdown")
 
 async def responsible_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1237,12 +1252,12 @@ async def responsible_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     assignments = get_user_assignments(user_id)
     filtered = [a for a in assignments if any(r == name for r in a.get("responsible", []))]
     if not filtered:
-        await query.edit_message_text(f"📭 Нет поручений у {name}.")
+        await query.edit_message_text(escape_markdown(f"📭 Нет поручений у {name}."), parse_mode=None)
         return
     text = f"👤 *Поручения по ответственному: {name}*\n\n"
     for idx, a in enumerate(filtered, 1):
         text += format_assignment_short(idx, a) + "\n"
-    await query.edit_message_text(text, parse_mode="Markdown")
+    await query.edit_message_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def deadline_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1250,10 +1265,11 @@ async def deadline_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if not args:
         await update.message.reply_text(
-            "Укажи дату в формате YYYY-MM-DD или DD-MM-YYYY (или диапазон):\n"
+            escape_markdown("Укажи дату в формате YYYY-MM-DD или DD-MM-YYYY (или диапазон):\n"
             "Пример: /deadline 2026-07-15\n"
             "или /deadline 15-07-2026\n"
-            "или /deadline 2026-07-10 2026-07-20"
+            "или /deadline 2026-07-10 2026-07-20"),
+            parse_mode=None
         )
         return
 
@@ -1261,7 +1277,7 @@ async def deadline_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for arg in args:
         parsed = parse_date(arg)
         if parsed is None:
-            await update.message.reply_text(f"❌ Неверный формат даты: {arg}. Используй YYYY-MM-DD или DD-MM-YYYY.")
+            await update.message.reply_text(escape_markdown(f"❌ Неверный формат даты: {arg}. Используй YYYY-MM-DD или DD-MM-YYYY."), parse_mode=None)
             return
         parsed_dates.append(parsed)
 
@@ -1283,21 +1299,21 @@ async def deadline_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             filtered = [a for a in assignments if a.get("deadline") and date_from <= a.get("deadline") <= date_to]
             title = f"📅 Поручения с дедлайном с {display_from} по {display_to}"
         else:
-            await update.message.reply_text("Слишком много аргументов. Укажи одну дату или диапазон из двух дат.")
+            await update.message.reply_text(escape_markdown("Слишком много аргументов. Укажи одну дату или диапазон из двух дат."), parse_mode=None)
             return
     except Exception as e:
         logger.error(f"Deadline command error: {e}")
-        await update.message.reply_text("❌ Ошибка обработки дат.")
+        await update.message.reply_text(escape_markdown("❌ Ошибка обработки дат."), parse_mode=None)
         return
 
     if not filtered:
-        await update.message.reply_text("📭 Нет поручений в указанном диапазоне.")
+        await update.message.reply_text(escape_markdown("📭 Нет поручений в указанном диапазоне."), parse_mode=None)
         return
 
     text = f"{title}\n\n"
     for idx, a in enumerate(filtered, 1):
         text += format_assignment_short(idx, a) + "\n"
-    await update.message.reply_text(text)
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = """🤖 Справка по командам бота
@@ -1322,7 +1338,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🔔 /remind <id> — напомнить
 📝 /register <ФИО> — зарегистрироваться для получения уведомлений
 ❓ /help — эта справка"""
-    await update.message.reply_text(text)
+    await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
 @require_registration
 async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1342,7 +1358,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("❓ Помощь", callback_data="menu_help")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("📌 *Выбери действие:*", reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(escape_markdown("📌 *Выбери действие:*"), reply_markup=reply_markup, parse_mode="Markdown")
 async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1370,7 +1386,7 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif action == "menu_responsible":
         await responsible_command(fake_update, context)
     elif action == "menu_deadline":
-        await query.edit_message_text("Введите дату: /deadline YYYY-MM-DD")
+        await query.edit_message_text(escape_markdown("Введите дату: /deadline YYYY-MM-DD"), parse_mode=None)
         return
     elif action == "menu_export_csv":
         await export_csv_command(fake_update, context)
@@ -1406,7 +1422,7 @@ async def show_duplicate_review(message_or_query, context, edit=False):
     pending_duplicates = context.user_data.get("pending_duplicates", [])
     index = context.user_data.get("pending_duplicates_index", 0)
     if not pending_duplicates:
-        await message_or_query.reply_text("Все дубли обработаны.")
+        await message_or_query.reply_text(escape_markdown("Все дубли обработаны."), parse_mode=None)
         return
 
     new_assignment, duplicates = pending_duplicates[index]
@@ -1439,9 +1455,9 @@ async def show_duplicate_review(message_or_query, context, edit=False):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     if edit:
-        await message_or_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        await message_or_query.edit_message_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
     else:
-        await message_or_query.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        await message_or_query.reply_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
 
 async def duplicate_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1458,7 +1474,7 @@ async def duplicate_callback_handler(update: Update, context: ContextTypes.DEFAU
         return
 
     if index >= len(pending_duplicates):
-        await query.edit_message_text("Все дубли обработаны.")
+        await query.edit_message_text(escape_markdown("Все дубли обработаны."), parse_mode=None)
         return
 
     new_assignment, duplicates = pending_duplicates[index]
@@ -1466,7 +1482,7 @@ async def duplicate_callback_handler(update: Update, context: ContextTypes.DEFAU
 
     if action.startswith("dup_save_"):
         save_assignment(user_id, new_assignment)
-        await query.edit_message_text("✅ Поручение сохранено как новое.")
+        await query.edit_message_text(escape_markdown("✅ Поручение сохранено как новое."), parse_mode=None)
     elif action.startswith("dup_update_"):
         user_assignments_list = user_assignments.get(user_id, [])
         for a in user_assignments_list:
@@ -1477,12 +1493,12 @@ async def duplicate_callback_handler(update: Update, context: ContextTypes.DEFAU
                 a["responsible"] = new_assignment.get("responsible", a["responsible"])
                 if new_assignment.get("protocol_number"):
                     a["protocol_number"] = new_assignment.get("protocol_number")
-                await query.edit_message_text("✅ Поручение обновлено.")
+                await query.edit_message_text(escape_markdown("✅ Поручение обновлено."), parse_mode=None)
                 break
         else:
-            await query.edit_message_text("❌ Не удалось найти поручение для обновления.")
+            await query.edit_message_text(escape_markdown("❌ Не удалось найти поручение для обновления."), parse_mode=None)
     elif action.startswith("dup_skip_"):
-        await query.edit_message_text("⏭️ Поручение пропущено.")
+        await query.edit_message_text(escape_markdown("⏭️ Поручение пропущено."), parse_mode=None)
 
     pending_duplicates.pop(index)
     context.user_data["pending_duplicates"] = pending_duplicates
@@ -1491,7 +1507,7 @@ async def duplicate_callback_handler(update: Update, context: ContextTypes.DEFAU
     if pending_duplicates:
         await show_duplicate_review(query, context, edit=True)
     else:
-        await query.edit_message_text("✅ Все дубли обработаны.")
+        await query.edit_message_text(escape_markdown("✅ Все дубли обработаны."), parse_mode=None)
 
 # ============== ПРОСМОТР ПЕРЕД СОХРАНЕНИЕМ ==============
 
@@ -1499,7 +1515,7 @@ async def show_review(message_or_query, context, edit=False):
     pending = context.user_data.get("pending_assignments", [])
     index = context.user_data.get("pending_index", 0)
     if not pending:
-        await message_or_query.reply_text("✅ Все поручения обработаны.")
+        await message_or_query.reply_text(escape_markdown("✅ Все поручения обработаны."), parse_mode=None)
         return
 
     assignment = pending[index]
@@ -1531,9 +1547,9 @@ async def show_review(message_or_query, context, edit=False):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if edit:
-        await message_or_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        await message_or_query.edit_message_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
     else:
-        await message_or_query.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        await message_or_query.reply_text(escape_markdown(text), reply_markup=reply_markup, parse_mode=None)
 
 async def review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1580,7 +1596,7 @@ async def review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["pending_index"] = min(index, len(pending) - 1)
             await show_review(query, context, edit=True)
         else:
-            await query.edit_message_text(f"✅ Сохранено поручений: {len(saved)}")
+            await query.edit_message_text(escape_markdown(f"✅ Сохранено поручений: {len(saved)}"), parse_mode=None)
             context.user_data.pop("pending_assignments", None)
             context.user_data.pop("pending_index", None)
             context.user_data.pop("saved_assignments", None)
@@ -1593,7 +1609,7 @@ async def review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["pending_index"] = min(index, len(pending) - 1)
             await show_review(query, context, edit=True)
         else:
-            await query.edit_message_text(f"✅ Сохранено поручений: {len(saved)}")
+            await query.edit_message_text(escape_markdown(f"✅ Сохранено поручений: {len(saved)}"), parse_mode=None)
             context.user_data.pop("pending_assignments", None)
             context.user_data.pop("pending_index", None)
             context.user_data.pop("saved_assignments", None)
@@ -1601,8 +1617,9 @@ async def review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "review_edit":
         await query.edit_message_text(
-            "✏️ Введи новое краткое описание для этого поручения.\n"
-            "Или напиши 'отмена', чтобы отменить редактирование."
+            escape_markdown("✏️ Введи новое краткое описание для этого поручения.\n"
+            "Или напиши 'отмена', чтобы отменить редактирование."),
+            parse_mode=None
         )
         context.user_data["editing_index"] = index
         return
@@ -1619,7 +1636,7 @@ async def review_edit_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     if text.lower() == "отмена":
-        await update.message.reply_text("Редактирование отменено.")
+        await update.message.reply_text(escape_markdown("Редактирование отменено."), parse_mode=None)
         context.user_data.pop("editing_index", None)
         await show_review(update.message, context)
         return
@@ -1651,7 +1668,7 @@ async def review_edit_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.pop("pending_assignments", None)
     context.user_data.pop("pending_index", None)
 
-    await update.message.reply_text(f"✅ Сохранено поручений: {len(saved)}")
+    await update.message.reply_text(escape_markdown(f"✅ Сохранено поручений: {len(saved)}"), parse_mode=None)
 
 # ============== ЕЖЕДНЕВНЫЕ НАПОМИНАНИЯ ==============
 
@@ -1741,16 +1758,17 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not args:
         await update.message.reply_text(
-            "ℹ️ Использование: /register ФИО\n\n"
+            escape_markdown("ℹ️ Использование: /register ФИО\n\n"
             "Пример: /register Иванов И.И.\n\n"
-            "Если вы уже зарегистрированы, эта команда обновит ваше ФИО."
+            "Если вы уже зарегистрированы, эта команда обновит ваше ФИО."),
+            parse_mode=None
         )
         return
 
     full_name = " ".join(args).strip()
 
     if len(full_name) < 3:
-        await update.message.reply_text("❌ Слишком короткое ФИО.")
+        await update.message.reply_text(escape_markdown("❌ Слишком короткое ФИО."), parse_mode=None)
         return
 
     existing = None
@@ -1777,26 +1795,29 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             del EMPLOYEES[name]
                     EMPLOYEES[full_name] = user_id
                     await update.message.reply_text(
-                        f"✅ Ваше ФИО обновлено!\n\n"
+                        escape_markdown(f"✅ Ваше ФИО обновлено!\n\n"
                         f"📌 Новое ФИО: {full_name}\n"
-                        f"🆔 Ваш Telegram ID: {user_id}"
+                        f"🆔 Ваш Telegram ID: {user_id}"),
+                        parse_mode=None
                     )
                     print(f"✅ Обновлено ФИО сотрудника: {full_name} (ID: {user_id})")
                 else:
-                    await update.message.reply_text("❌ Ошибка обновления ФИО.")
+                    await update.message.reply_text(escape_markdown("❌ Ошибка обновления ФИО."), parse_mode=None)
             else:
                 for name in list(EMPLOYEES.keys()):
                     if EMPLOYEES[name] == user_id:
                         del EMPLOYEES[name]
                 EMPLOYEES[full_name] = user_id
                 await update.message.reply_text(
-                    f"✅ Ваше ФИО обновлено (локально)!\n"
-                    f"📌 Новое ФИО: {full_name}"
+                    escape_markdown(f"✅ Ваше ФИО обновлено (локально)!\n"
+                    f"📌 Новое ФИО: {full_name}"),
+                    parse_mode=None
                 )
         else:
             await update.message.reply_text(
-                f"ℹ️ Вы уже зарегистрированы как {existing['full_name']}.\n"
-                f"Если хотите изменить ФИО, используйте /register Новое ФИО"
+                escape_markdown(f"ℹ️ Вы уже зарегистрированы как {existing['full_name']}.\n"
+                f"Если хотите изменить ФИО, используйте /register Новое ФИО"),
+                parse_mode=None
             )
         return
 
@@ -1804,28 +1825,31 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         existing_by_name = db_manager.get_employee_by_name(full_name)
         if existing_by_name:
             await update.message.reply_text(
-                f"❌ ФИО '{full_name}' уже зарегистрировано другим пользователем."
+                escape_markdown(f"❌ ФИО '{full_name}' уже зарегистрировано другим пользователем."),
+                parse_mode=None
             )
             return
 
         if db_manager.register_employee(full_name, user_id):
             EMPLOYEES[full_name] = user_id
             await update.message.reply_text(
-                f"✅ Вы успешно зарегистрированы!\n\n"
+                escape_markdown(f"✅ Вы успешно зарегистрированы!\n\n"
                 f"📌 ФИО: {full_name}\n"
-                f"🆔 Ваш Telegram ID: {user_id}"
+                f"🆔 Ваш Telegram ID: {user_id}"),
+                parse_mode=None
             )
             print(f"✅ Новый сотрудник зарегистрирован в БД: {full_name} (ID: {user_id})")
         else:
-            await update.message.reply_text("❌ Ошибка регистрации.")
+            await update.message.reply_text(escape_markdown("❌ Ошибка регистрации."), parse_mode=None)
     else:
         if full_name in EMPLOYEES:
-            await update.message.reply_text(f"❌ ФИО '{full_name}' уже занято.")
+            await update.message.reply_text(escape_markdown(f"❌ ФИО '{full_name}' уже занято."), parse_mode=None)
             return
         EMPLOYEES[full_name] = user_id
         await update.message.reply_text(
-            f"✅ Вы зарегистрированы (локально).\n"
-            f"📌 ФИО: {full_name}"
+            escape_markdown(f"✅ Вы зарегистрированы (локально).\n"
+            f"📌 ФИО: {full_name}"),
+            parse_mode=None
         )
 
 # ============== НАСТРОЙКА КОМАНД ДЛЯ ИНТЕРФЕЙСА ==============
@@ -1865,8 +1889,9 @@ async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "📱 Нажми на кнопку, чтобы открыть мини-приложение:",
-        reply_markup=reply_markup
+        escape_markdown("📱 Нажми на кнопку, чтобы открыть мини-приложение:"),
+        reply_markup=reply_markup,
+        parse_mode=None
     )
 
 # ============== ЗАПУСК ==============
@@ -1924,10 +1949,10 @@ def main():
     async def upload_command_wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         if not is_user_registered(user_id):
-            await update.message.reply_text("⚠️ Зарегистрируйтесь: /register ФИО")
+            await update.message.reply_text(escape_markdown("⚠️ Зарегистрируйтесь: /register ФИО"), parse_mode=None)
             return
         if not is_admin(user_id):
-            await update.message.reply_text("⛔ Только начальники могут загружать документы.")
+            await update.message.reply_text(escape_markdown("⛔ Только начальники могут загружать документы."), parse_mode=None)
             return
         await upload_command(update, context)
 
