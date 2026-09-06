@@ -90,13 +90,8 @@ def load_employees_from_db():
     global EMPLOYEES
     if USE_POSTGRES and db_manager:
         try:
-            conn = db_manager.get_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT full_name, telegram_id FROM employees")
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            EMPLOYEES = {row[0]: row[1] for row in rows}
+            employees = db_manager.get_all_employees()
+            EMPLOYEES = {emp["full_name"]: emp["telegram_id"] for emp in employees}
             print(f"✅ Загружено {len(EMPLOYEES)} сотрудников из базы")
         except Exception as e:
             print(f"❌ Ошибка загрузки сотрудников: {e}")
@@ -116,6 +111,7 @@ def is_user_registered(user_id: int) -> bool:
         return False
 
 def is_admin(user_id: int) -> bool:
+    """Проверяет, является ли пользователь администратором (по роли в БД)"""
     if USE_POSTGRES and db_manager:
         try:
             conn = db_manager.get_connection()
@@ -489,6 +485,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 ✅ /done <id> — отметить поручение выполненным
 📝 /register <ФИО> — зарегистрироваться для получения уведомлений
 🔔 /remind <id> — напомнить о поручении
+👑 /make_admin <ФИО> — назначить администратора (только для админов)
 
 Примеры:
 /edit 5 deadline 2025-12-31
@@ -1351,6 +1348,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ✅ /done <id> — отметить выполненным
 🔔 /remind <id> — напомнить
 📝 /register <ФИО> — зарегистрироваться для получения уведомлений
+👑 /make_admin <ФИО> — назначить администратора (только для админов)
 ❓ /help — эта справка"""
     await update.message.reply_text(escape_markdown(text), parse_mode=None)
 
@@ -1373,6 +1371,7 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(escape_markdown("📌 *Выбери действие:*"), reply_markup=reply_markup, parse_mode="Markdown")
+
 async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1866,6 +1865,8 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
 
+# ============== НАЗНАЧЕНИЕ АДМИНИСТРАТОРА ==============
+
 @require_registration
 async def make_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Добавляет пользователя как администратора (только для админов)"""
@@ -1982,9 +1983,9 @@ async def setup_bot_commands(application: Application):
         ("done", "Отметить поручение выполненным"),
         ("register", "Зарегистрироваться для уведомлений"),
         ("remind", "Напомнить о поручении"),
-        ("make_admin", "Назначить администратора (только для админов)"),
         ("help", "Помощь"),
         ("app", "Открыть приложение"),
+        ("make_admin", "Назначить администратора (только для админов)"),
     ]
     await application.bot.set_my_commands(commands)
 
@@ -2015,6 +2016,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("register", register_command))
+    app.add_handler(CommandHandler("make_admin", make_admin_command))
     app.add_handler(CommandHandler("list", list_assignments))
     app.add_handler(CommandHandler("delete", delete_command))
     app.add_handler(CommandHandler("edit", edit_command))
@@ -2032,7 +2034,6 @@ def main():
     app.add_handler(CommandHandler("responsible", responsible_command))
     app.add_handler(CommandHandler("deadline", deadline_command))
     app.add_handler(CommandHandler("menu", menu_command))
-    app.add_handler(CommandHandler("make_admin", make_admin_command))
     app.add_handler(CommandHandler("app", app_command))
 
     app.add_handler(CallbackQueryHandler(complete_callback, pattern="^complete_"))
