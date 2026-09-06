@@ -2010,7 +2010,7 @@ def api_stats(user_id):
             cur.execute("SELECT COUNT(*) as count FROM assignments WHERE user_id = %s", (user_id,))
         total = cur.fetchone()['count']
         
-        # ВЫПОЛНЕННЫХ
+        # ===== ВЫПОЛНЕННЫХ (ТОЛЬКО С completed_at) =====
         if user_name:
             cur.execute("""
                 SELECT COUNT(*) as count FROM assignments 
@@ -2024,7 +2024,7 @@ def api_stats(user_id):
             """, (user_id,))
         completed = cur.fetchone()['count']
         
-        # ПРОСРОЧЕННЫХ
+        # ===== ПРОСРОЧЕННЫХ (активные + deadline < сегодня) =====
         today = datetime.now().date()
         if user_name:
             cur.execute("""
@@ -2044,7 +2044,7 @@ def api_stats(user_id):
             """, (user_id, today))
         overdue = cur.fetchone()['count']
         
-        # АКТИВНЫХ
+        # ===== АКТИВНЫХ (остальные активные) =====
         if user_name:
             cur.execute("""
                 SELECT COUNT(*) as count FROM assignments 
