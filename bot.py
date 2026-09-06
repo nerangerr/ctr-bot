@@ -1974,109 +1974,21 @@ def main():
     print("🚀 Бот запущен!")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
-# ============== ДЛЯ RENDER WEB SERVICE (С ДОБАВЛЕННЫМ API) ==============
-from flask import Flask, jsonify
+# ============== ДЛЯ RENDER WEB SERVICE ==============
+from flask import Flask
 import threading
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
-# Создаём Flask сервер для health check и API
+# Создаём минимальный Flask сервер для health check
 health_app = Flask(__name__)
 
 @health_app.route('/')
 def health_check():
     return "Bot is running!", 200
 
-# ===== НОВЫЙ API-ЭНДПОИНТ ДЛЯ СТАТИСТИКИ =====
-@health_app.route('/api/stats/<int:user_id>')
-def api_stats(user_id):
-    """Возвращает статистику по поручениям пользователя (как в /stats)"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Получаем ФИО пользователя
-        cur.execute("SELECT full_name FROM employees WHERE telegram_id = %s", (user_id,))
-        row = cur.fetchone()
-        user_name = row['full_name'] if row else None
-        
-        # ВСЕГО
-        if user_name:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE user_id = %s OR %s = ANY(responsible)
-            """, (user_id, user_name))
-        else:
-            cur.execute("SELECT COUNT(*) as count FROM assignments WHERE user_id = %s", (user_id,))
-        total = cur.fetchone()['count']
-        
-        # ===== ВЫПОЛНЕННЫХ (ТОЛЬКО С completed_at) =====
-        if user_name:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE (user_id = %s OR %s = ANY(responsible)) 
-                AND status = 'completed' AND completed_at IS NOT NULL
-            """, (user_id, user_name))
-        else:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE user_id = %s AND status = 'completed' AND completed_at IS NOT NULL
-            """, (user_id,))
-        completed = cur.fetchone()['count']
-        
-        # ===== ПРОСРОЧЕННЫХ (активные + deadline < сегодня) =====
-        today = datetime.now().date()
-        if user_name:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE (user_id = %s OR %s = ANY(responsible)) 
-                AND status != 'completed' 
-                AND deadline IS NOT NULL 
-                AND deadline < %s
-            """, (user_id, user_name, today))
-        else:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE user_id = %s 
-                AND status != 'completed' 
-                AND deadline IS NOT NULL 
-                AND deadline < %s
-            """, (user_id, today))
-        overdue = cur.fetchone()['count']
-        
-        # ===== АКТИВНЫХ (остальные активные) =====
-        if user_name:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE (user_id = %s OR %s = ANY(responsible)) 
-                AND status != 'completed' 
-                AND (deadline IS NULL OR deadline >= %s)
-            """, (user_id, user_name, today))
-        else:
-            cur.execute("""
-                SELECT COUNT(*) as count FROM assignments 
-                WHERE user_id = %s 
-                AND status != 'completed' 
-                AND (deadline IS NULL OR deadline >= %s)
-            """, (user_id, today))
-        active = cur.fetchone()['count']
-        
-        cur.close()
-        conn.close()
-        
-        return jsonify({
-            "total": total,
-            "completed": completed,
-            "active": active,
-            "overdue": overdue
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 def start_health_server():
     health_app.run(host='0.0.0.0', port=10000)
 
-# Запускаем Flask в отдельном потоке
+# Запускаем Flask в отдельном потоке (не блокирует бота)
 threading.Thread(target=start_health_server, daemon=True).start()
 
 # ============== KEEP-ALIVE ДЛЯ RENDER ==============
