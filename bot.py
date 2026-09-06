@@ -90,8 +90,13 @@ def load_employees_from_db():
     global EMPLOYEES
     if USE_POSTGRES and db_manager:
         try:
-            employees = db_manager.get_all_employees()
-            EMPLOYEES = {emp["full_name"]: emp["telegram_id"] for emp in employees}
+            conn = db_manager.get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT full_name, telegram_id FROM employees")
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            EMPLOYEES = {row[0]: row[1] for row in rows}
             print(f"✅ Загружено {len(EMPLOYEES)} сотрудников из базы")
         except Exception as e:
             print(f"❌ Ошибка загрузки сотрудников: {e}")
@@ -112,14 +117,23 @@ def is_user_registered(user_id: int) -> bool:
 
 def is_admin(user_id: int) -> bool:
     if USE_POSTGRES and db_manager:
-        employee = db_manager.get_employee_by_id(user_id)
-        if employee:
-            return employee.get("role") == "admin"
+        try:
+            conn = db_manager.get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT role FROM employees WHERE telegram_id = %s", (user_id,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            return row is not None and row[0] == 'admin'
+        except Exception as e:
+            logger.error(f"Check admin error: {e}")
+            return False
     else:
+        # Локальный режим — проверка по списку
         for name, uid in EMPLOYEES.items():
             if uid == user_id and name in ADMINS_NAMES:
                 return True
-    return False
+        return False
 
 def require_registration(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
@@ -1852,6 +1866,99 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
 
+@require_registration
+async def make_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Добавляет пользователя как администратора (только для админов)"""
+    user_id = update.effective_user.id
+    
+    # Проверяем, является ли вызывающий админом
+    if not is_admin(user_id):
+        await update.message.reply_text(
+            escape_markdown("⛔ *У вас нет прав для этой команды!*\n"
+            "Только администраторы могут назначать других администраторов."),
+            parse_mode="Markdown"
+        )
+        return
+    
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            escape_markdown("📝 *Использование:* `/make_admin ФИО`\n\n"
+            "Пример: `/make_admin Иванов И.И.`"),
+            parse_mode="Markdown"
+        )
+        return
+    
+    full_name = " ".join(args).strip()
+    
+    if USE_POSTGRES and db_manager:
+        try:
+            conn = db_manager.get_connection()
+            cur = conn.cursor()
+            
+            # Проверяем, существует ли сотрудник
+            cur.execute("SELECT telegram_id, role FROM employees WHERE full_name = %s", (full_name,))
+            row = cur.fetchone()
+            
+            if not row:
+                await update.message.reply_text(
+                    escape_markdown(f"❌ Сотрудник `{full_name}` не найден в базе.\n"
+                    "Сначала он должен зарегистрироваться через `/register`"),
+                    parse_mode="Markdown"
+                )
+                cur.close()
+                conn.close()
+                return
+            
+            telegram_id, current_role = row
+            
+            if current_role == 'admin':
+                await update.message.reply_text(
+                    escape_markdown(f"ℹ️ `{full_name}` уже является администратором."),
+                    parse_mode="Markdown"
+                )
+                cur.close()
+                conn.close()
+                return
+            
+            # Назначаем админом
+            cur.execute("UPDATE employees SET role = 'admin' WHERE full_name = %s", (full_name,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            await update.message.reply_text(
+                escape_markdown(f"✅ *{full_name} теперь администратор!*\n\n"
+                f"Он может:\n"
+                f"• Загружать документы\n"
+                f"• Назначать других администраторов через `/make_admin`"),
+                parse_mode="Markdown"
+            )
+            
+            # Уведомляем нового админа
+            try:
+                await context.bot.send_message(
+                    chat_id=telegram_id,
+                    text=f"🎉 *Вас назначили администратором!*\n\n"
+                         f"Теперь вы можете:\n"
+                         f"• Загружать документы\n"
+                         f"• Назначать других администраторов через `/make_admin`"
+                )
+            except Exception as e:
+                print(f"Не удалось уведомить нового админа: {e}")
+                
+        except Exception as e:
+            logger.error(f"Make admin error: {e}")
+            await update.message.reply_text(
+                escape_markdown(f"❌ Ошибка: {e}"),
+                parse_mode=None
+            )
+    else:
+        await update.message.reply_text(
+            escape_markdown("❌ Эта команда доступна только при использовании PostgreSQL."),
+            parse_mode=None
+        )
+
 # ============== НАСТРОЙКА КОМАНД ДЛЯ ИНТЕРФЕЙСА ==============
 
 async def setup_bot_commands(application: Application):
@@ -1875,6 +1982,7 @@ async def setup_bot_commands(application: Application):
         ("done", "Отметить поручение выполненным"),
         ("register", "Зарегистрироваться для уведомлений"),
         ("remind", "Напомнить о поручении"),
+        ("make_admin", "Назначить администратора (только для админов)"),
         ("help", "Помощь"),
         ("app", "Открыть приложение"),
     ]
@@ -1924,6 +2032,7 @@ def main():
     app.add_handler(CommandHandler("responsible", responsible_command))
     app.add_handler(CommandHandler("deadline", deadline_command))
     app.add_handler(CommandHandler("menu", menu_command))
+    app.add_handler(CommandHandler("make_admin", make_admin_command))
     app.add_handler(CommandHandler("app", app_command))
 
     app.add_handler(CallbackQueryHandler(complete_callback, pattern="^complete_"))
